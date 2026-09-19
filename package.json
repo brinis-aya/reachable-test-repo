@@ -1,0 +1,13 @@
+{
+  "name": "reachable-test-repo",
+  "version": "1.0.0",
+  "description": "Deliberately vulnerable sample project for testing the Reachable security scanner",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "lodash": "4.17.15",
+    "minimist": "0.0.8"
+  }
+}
