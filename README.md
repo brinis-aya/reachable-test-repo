@@ -6,18 +6,36 @@ these dependency versions in a real project.**
 
 ## What's in here, on purpose
 
+Every version below carries a real advisory in [OSV.dev](https://osv.dev)
+and was verified with a real `pip install`/`npm install` + test run inside
+the actual sandbox base images (`python:3.12-slim`, `node:20-slim`) that
+Reachable's fix-and-validate pipeline uses — not just picked from memory.
+Several older, more "famous" CVE versions were tried first and rejected
+because they no longer build or import on modern Python/Node.
+
 | Ecosystem | Package | Version | Vulnerable? | Actually used in code? |
 |---|---|---|---|---|
-| Python (pip) | `PyYAML` | 5.3.1 | Yes — [CVE-2020-14343](https://nvd.nist.gov/vuln/detail/CVE-2020-14343), fixed in 5.4 | **Yes** — `app.py` calls `yaml.load()` |
-| Python (pip) | `Pillow` | 8.1.0 | Yes — multiple CVEs, fixed in 8.1.2+ | **No** — never imported anywhere |
-| Node (npm) | `lodash` | 4.17.15 | Yes — [CVE-2020-8203](https://nvd.nist.gov/vuln/detail/CVE-2020-8203) / [CVE-2021-23337](https://nvd.nist.gov/vuln/detail/CVE-2021-23337), fixed in 4.17.21 | **Yes** — `index.js` calls `_.merge()` |
-| Node (npm) | `minimist` | 0.0.8 | Yes — [CVE-2020-7598](https://nvd.nist.gov/vuln/detail/CVE-2020-7598), fixed in 1.2.3/0.2.1 | **No** — never required anywhere |
+| Python (pip) | `PyYAML` | 5.3.1 | Yes — [CVE-2020-14343](https://nvd.nist.gov/vuln/detail/CVE-2020-14343) | **Reachable** — `app.py` calls `yaml.load()` |
+| Python (pip) | `Pillow` | 10.0.0 | Yes — [CVE-2023-50447](https://nvd.nist.gov/vuln/detail/CVE-2023-50447), among ~35 others | **Not reachable** — never imported anywhere |
+| Python (pip) | `Jinja2` | 3.1.2 | Yes — [CVE-2025-27516](https://nvd.nist.gov/vuln/detail/CVE-2025-27516) (sandbox breakout) | **Reachable** — `app.py` calls `Template().render()` |
+| Python (pip) | `requests` | 2.19.0 | Yes — [CVE-2024-47081](https://nvd.nist.gov/vuln/detail/CVE-2024-47081) (`.netrc` credential leak) | **Not reachable** — never imported anywhere |
+| Python (pip) | `paramiko` | 2.10.1 | Yes — [CVE-2023-48795](https://nvd.nist.gov/vuln/detail/CVE-2023-48795) ("Terrapin" SSH attack) | **Unknown** — imported in `app.py` but never called |
+| Python (pip) | `lxml` | 4.9.3 | Yes — [CVE-2026-41066](https://nvd.nist.gov/vuln/detail/CVE-2026-41066) (XXE) | **Reachable** — `app.py` calls `etree.fromstring()` |
+| Node (npm) | `lodash` | 4.17.15 | Yes — [CVE-2020-8203](https://nvd.nist.gov/vuln/detail/CVE-2020-8203) / [CVE-2021-23337](https://nvd.nist.gov/vuln/detail/CVE-2021-23337) | **Reachable** — `index.js` calls `_.merge()` |
+| Node (npm) | `minimist` | 0.0.8 | Yes — [CVE-2020-7598](https://nvd.nist.gov/vuln/detail/CVE-2020-7598) | **Not reachable** — never required anywhere |
+| Node (npm) | `node-fetch` | 2.6.0 | Yes — [CVE-2022-0235](https://nvd.nist.gov/vuln/detail/CVE-2022-0235) (leaks secure headers on redirect) | **Reachable** — `index.js` calls `fetch()` |
+| Node (npm) | `ansi-regex` | 3.0.0 | Yes — [CVE-2021-3807](https://nvd.nist.gov/vuln/detail/CVE-2021-3807) (ReDoS) | **Not reachable** — never required anywhere |
+| Node (npm) | `minimatch` | 3.0.4 | Yes — [CVE-2026-27904](https://nvd.nist.gov/vuln/detail/CVE-2026-27904) (ReDoS) | **Unknown** — required in `index.js` but never called |
+| Node (npm) | `json5` | 1.0.1 | Yes — [CVE-2022-46175](https://nvd.nist.gov/vuln/detail/CVE-2022-46175) (prototype pollution) | **Reachable** — `index.js` calls `JSON5.parse()` |
+| Node (npm) | `express` | 4.16.0 | Yes — [CVE-2024-43796](https://nvd.nist.gov/vuln/detail/CVE-2024-43796), among others | **Not reachable** — never required anywhere |
+| Node (npm) | `semver` | 5.7.1 | Yes — [CVE-2022-25883](https://nvd.nist.gov/vuln/detail/CVE-2022-25883) (ReDoS) | **Reachable** — `index.js` calls `semver.satisfies()` |
 
-The point: a good scanner should flag all four as known vulnerabilities via
-OSV.dev, but should be able to tell that the PyYAML and lodash issues are
-actually reachable (real code calls into the vulnerable path), while Pillow
-and minimist are just present in the manifest and unused — lower priority,
-not silently hidden.
+The point: a good scanner should flag all fourteen as known vulnerabilities
+via OSV.dev, but should also be able to tell the three outcomes apart —
+**reachable** (real code calls into the vulnerable path), **not reachable**
+(present in the manifest, never imported/required), and **unknown**
+(imported/required, but no confident call site found) — rather than
+treating every listed dependency as equally urgent.
 
 ## Running it
 
@@ -29,10 +47,3 @@ pytest
 npm install
 npm test
 ```
-
-Note: `PyYAML==5.3.1` and `Pillow==8.1.0` predate Python 3.12 and have no
-prebuilt wheels for it, so `pip install` will try to compile them from
-source there (slow, needs a C compiler) — use Python 3.9–3.11 if you want
-to literally install these exact pinned versions. That's normal for old,
-unpatched dependencies; it doesn't affect Reachable's ability to detect
-them from `requirements.txt` alone.
